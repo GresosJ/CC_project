@@ -8,30 +8,43 @@ import (
 )
 
 func main() {
-	conn, err := net.Dial("tcp", "localhost:9090")
+	serverAddress := "localhost:9090"
+
+	// Connecta ao servidor
+	conn, err := net.Dial("tcp", serverAddress)
 	if err != nil {
-		fmt.Println("Error:", err)
+		fmt.Println("Error connecting to the server:", err)
 		return
 	}
 	defer conn.Close()
 
-	// Create a bufio reader for user input
+	fmt.Println("Connected to the FS Tracker server")
+
 	reader := bufio.NewReader(os.Stdin)
 
 	for {
-		fmt.Print("Enter a message ('ok' to exit): ")
-		message, _ := reader.ReadString('\n')
+		fmt.Print("Enter a command (e.g., REGISTRATION, UPDATE, LOCATE, or QUIT): ")
+		command, _ := reader.ReadString('\n')
+		command = command[:len(command)-1] // Remove a quebra de linha
 
-		// Send the user's message to the server
-		_, err := conn.Write([]byte(message))
+		// Mandar o comando para o servidor
+		_, err := conn.Write([]byte(command + "\n"))
 		if err != nil {
-			fmt.Println("Error sending message to server:", err)
-			return
+			fmt.Println("Error sending command to the server:", err)
+			break
 		}
 
-		if message == "ok\n" {
-			fmt.Println("Closing the connection.")
-			return
+		// Le e imprime a resposta do servidor
+		response, err := bufio.NewReader(conn).ReadString('\n')
+		if command == "QUIT" {
+			break
 		}
+
+		if err != nil {
+			fmt.Println("Error receiving response from the server:", err)
+			break
+		}
+
+		fmt.Println("Server Response:", response)
 	}
 }

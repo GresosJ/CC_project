@@ -9,13 +9,13 @@ import (
 	"strings"
 )
 
-// Estrutura para representar informações sobre um FS_Node
+// FSNodeInfo representa informações sobre um FS_Node registrado.
 type FSNodeInfo struct {
 	Address     string
 	SharedFiles []string
 }
 
-// Mapeamento de nomes de FS_Node para informações
+// nodeInfoMap mapeia nomes de FS_Node para informações.
 var nodeInfoMap map[string]FSNodeInfo
 
 func main() {
@@ -24,11 +24,12 @@ func main() {
 	// Porta em que o servidor FS_Tracker escutará
 	port := 9090
 	if len(os.Args) > 1 {
-		port, _ = strconv.Atoi(os.Args[1])
+		portStr := os.Args[1]
+		port, _ = strconv.Atoi(portStr)
 	}
 
 	// Inicie o servidor FS_Tracker na porta especificada
-	listener, err := net.Listen("tcp", "localhost:"+strconv.Itoa(port))
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		fmt.Printf("Erro ao iniciar o servidor: %s\n", err)
 		return
@@ -49,54 +50,119 @@ func main() {
 
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
-	fmt.Println("Client connected:", conn.RemoteAddr())
 
-	// ISTO É SO PARA VER SE O CLIENTE CONSEGUE SE CONECTAR AO SERVIDOR (É UM TESTE)
+	// Use bufio para ler as mensagens do cliente.
 	reader := bufio.NewReader(conn)
-
 	for {
 		message, err := reader.ReadString('\n')
 		if err != nil {
-			fmt.Println("Client disconnected:", conn.RemoteAddr())
-			return
+			fmt.Printf("Erro na leitura da mensagem: %s\n", err)
+			break
 		}
 		message = strings.TrimSpace(message)
-		fmt.Println("Received message from client:", message)
 
-		if message == "ok" {
-			fmt.Println("Client sent 'ok'. Closing the connection.")
-			return
+		// Processar a mensagem com base no protocolo.
+		handleMessage(conn, message)
+	}
+}
+
+func handleMessage(conn net.Conn, message string) {
+	parts := strings.Fields(message)
+
+	if len(parts) == 0 {
+		fmt.Println("Mensagem vazia")
+		return
+	}
+
+	command := parts[0]
+
+	switch command {
+	case "REGISTRATION":
+		handleRegistration(conn, parts)
+	case "UPDATE":
+		handleUpdate(conn, parts)
+	case "LOCATE":
+		handleLocate(conn, parts)
+	case "QUIT":
+		handleQuit(conn)
+	default:
+		sendResponse(conn, "ERROR Comando desconhecido")
+	}
+}
+
+func handleRegistration(conn net.Conn, parts []string) {
+	//Isto esta muito incompleto, mas é só para testar
+	nodeName := "node1"
+	ipAddress := conn.RemoteAddr().String()
+	sharedFiles := []string{"file1", "file2", "file3"}
+
+	//Deveria ser nodeIndomap[nodeName]
+	nodeInfoMap[ipAddress] = FSNodeInfo{
+		Address:     ipAddress,
+		SharedFiles: sharedFiles,
+	}
+	fmt.Println("Registrado FS_Node:", ipAddress)
+
+	sendResponse(conn, fmt.Sprintf("REGISTRATION_SUCCESS %s", nodeName))
+}
+
+func handleUpdate(conn net.Conn, parts []string) {
+	nodeName := conn.RemoteAddr().String()
+	sharedFiles := parts[1:]
+
+	if nodeInfo, exists := nodeInfoMap[nodeName]; exists {
+		nodeInfo.SharedFiles = sharedFiles
+		nodeInfoMap[nodeName] = nodeInfo
+		sendResponse(conn, fmt.Sprintf("UPDATE_SUCCESS %s", nodeName))
+	} else {
+		sendResponse(conn, "ERROR Node não registrado")
+	}
+}
+
+func handleLocate(conn net.Conn, parts []string) {
+	if len(parts) < 2 {
+		sendResponse(conn, "ERROR Comando LOCATE malformado")
+		return
+	}
+
+	fileName := parts[1]
+
+	locations := make([]string, 0)
+
+	for nodeName, nodeInfo := range nodeInfoMap {
+		if contains(nodeInfo.SharedFiles, fileName) {
+			locations = append(locations, fmt.Sprintf("%s %s %s", nodeName, nodeInfo.Address, strings.Join(nodeInfo.SharedFiles, " ")))
 		}
 	}
 
-	// Aqui, você deve implementar a lógica de manipulação de mensagens FS Track Protocol.
-	// Isso incluirá o registro de um FS_Node, a atualização da lista de arquivos/blocos
-	// e a resposta a pedidos de localização de arquivos.
+	if len(locations) > 0 {
+		sendResponse(conn, fmt.Sprintf("LOCATE_SUCCESS %s", strings.Join(locations, "\n")))
+	} else {
+		sendResponse(conn, "ERROR Arquivo não encontrado")
+	}
+}
 
-	// Por exemplo, você pode usar bufio.NewReader para ler mensagens do cliente e responder
-	// de acordo com o protocolo.
+func handleQuit(conn net.Conn) {
+	//Tirar o FS_Node do mapa
+	for nodeName, nodeInfo := range nodeInfoMap {
+		if nodeInfo.Address == conn.RemoteAddr().String() {
+			delete(nodeInfoMap, nodeName)
+			fmt.Println("FS_Node desconectado:", nodeName)
+			sendResponse(conn, "QUIT_SUCCESS")
+			break
+		}
+	}
+}
 
-	// Exemplo:
-	// reader := bufio.NewReader(conn)
-	// message, _ := reader.ReadString('\n')
-	// message = strings.TrimSpace(message)
+func contains(arr []string, item string) bool {
+	for _, a := range arr {
+		if a == item {
+			return true
+		}
+	}
+	return false
+}
 
-	// Implemente o código para processar mensagens FS Track Protocol aqui.
-
-	// Exemplo de registro de um FS_Node:
-	// if strings.HasPrefix(message, "REGISTER") {
-	//     parts := strings.Split(message, " ")
-	//     nodeName := parts[1]
-	//     address := parts[2]
-	//     files := parts[3:]
-	//     // Registre o FS_Node no nodeInfoMap
-	//     // ...
-	// }
-
-	// Exemplo de pedido de localização de um arquivo:
-	// if strings.HasPrefix(message, "LOCATE") {
-	//     // Processar o pedido de localização de arquivo e responder com a lista de FS_Node
-	//     // que possuem o arquivo
-	//     // ...
-	// }
+func sendResponse(conn net.Conn, response string) {
+	conn.Write([]byte(response + "\n"))
 }
