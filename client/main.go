@@ -18,12 +18,13 @@ func main() {
 	}
 	defer conn.Close()
 
-	fmt.Println("Connected to the FS Tracker server")
+	response, err := bufio.NewReader(conn).ReadString('\n')
+	fmt.Print(response)
 
 	reader := bufio.NewReader(os.Stdin)
 
 	for {
-		fmt.Print("Enter a command (e.g., REGISTRATION, UPDATE, LOCATE, or QUIT): ")
+		fmt.Print("Enter a command (UPDATE, LOCATE, or QUIT): ")
 		command, _ := reader.ReadString('\n')
 		command = command[:len(command)-1] // Remove a quebra de linha
 
@@ -45,6 +46,6 @@ func main() {
 			break
 		}
 
-		fmt.Println("Server Response:", response)
+		fmt.Print(response)
 	}
 }
