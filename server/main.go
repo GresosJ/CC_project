@@ -51,9 +51,6 @@ func main() {
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
 
-	// Registre automaticamente o cliente ao se conectar.
-	handleRegistration(conn)
-
 	// Use bufio para ler as mensagens do cliente.
 	reader := bufio.NewReader(conn)
 	for {
@@ -74,12 +71,15 @@ func handleMessage(conn net.Conn, message string) {
 
 	if len(parts) == 0 {
 		fmt.Println("Mensagem vazia")
+		sendResponse(conn, " ")
 		return
 	}
 
 	command := parts[0]
 
 	switch command {
+	case "REGISTRATION":
+		handleRegistration(conn, parts)
 	case "UPDATE":
 		handleUpdate(conn, parts)
 	case "LOCATE":
@@ -91,11 +91,11 @@ func handleMessage(conn net.Conn, message string) {
 	}
 }
 
-func handleRegistration(conn net.Conn) {
+func handleRegistration(conn net.Conn, parts []string) {
 	//Isto esta muito incompleto, mas é só para testar
 	nodeName := "node" + conn.RemoteAddr().String()
 	ipAddress := conn.RemoteAddr().String()
-	sharedFiles := []string{"file1", "file2", "file3"}
+	sharedFiles := parts[1:]
 
 	//Deveria ser nodeIndomap[nodeName]
 	nodeInfoMap[nodeName] = FSNodeInfo{
