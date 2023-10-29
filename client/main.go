@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 )
 
 func main() {
@@ -18,12 +19,12 @@ func main() {
 	}
 	defer conn.Close()
 
-	fmt.Println("Connected to the FS Tracker server")
+	registration(conn)
 
 	reader := bufio.NewReader(os.Stdin)
 
 	for {
-		fmt.Print("Enter a command (e.g., REGISTRATION, UPDATE, LOCATE, or QUIT): ")
+		fmt.Print("Enter a command (UPDATE, LOCATE, or QUIT): ")
 		command, _ := reader.ReadString('\n')
 		command = command[:len(command)-1] // Remove a quebra de linha
 
@@ -45,6 +46,44 @@ func main() {
 			break
 		}
 
-		fmt.Println("Server Response:", response)
+		fmt.Print(response)
 	}
+}
+
+func registration(conn net.Conn) {
+	filesDir := "files"
+	command := "REGISTRATION"
+	fileList, err := listFiles(filesDir)
+	if err != nil {
+		fmt.Println("Erro ao listar os arquivos na pasta 'files':", err)
+		return
+	}
+
+	// Combine o comando e a lista de arquivos em uma única string
+	message := command + " " + strings.Join(fileList, " ")
+
+	_, err = conn.Write([]byte(message + "\n"))
+	if err != nil {
+		fmt.Println("Erro ao enviar comando para o servidor:", err)
+		return
+	}
+	response, err := bufio.NewReader(conn).ReadString('\n')
+	fmt.Print(response)
+}
+
+func listFiles(directory string) ([]string, error) {
+	var fileList []string
+	files, err := os.ReadDir(directory)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, file := range files {
+		if file.IsDir() {
+			continue
+		}
+		fileList = append(fileList, file.Name())
+	}
+
+	return fileList, nil
 }

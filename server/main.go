@@ -71,6 +71,7 @@ func handleMessage(conn net.Conn, message string) {
 
 	if len(parts) == 0 {
 		fmt.Println("Mensagem vazia")
+		sendResponse(conn, " ")
 		return
 	}
 
@@ -92,12 +93,12 @@ func handleMessage(conn net.Conn, message string) {
 
 func handleRegistration(conn net.Conn, parts []string) {
 	//Isto esta muito incompleto, mas é só para testar
-	nodeName := "node1"
+	nodeName := "node" + conn.RemoteAddr().String()
 	ipAddress := conn.RemoteAddr().String()
-	sharedFiles := []string{"file1", "file2", "file3"}
+	sharedFiles := parts[1:]
 
 	//Deveria ser nodeIndomap[nodeName]
-	nodeInfoMap[ipAddress] = FSNodeInfo{
+	nodeInfoMap[nodeName] = FSNodeInfo{
 		Address:     ipAddress,
 		SharedFiles: sharedFiles,
 	}
@@ -107,7 +108,7 @@ func handleRegistration(conn net.Conn, parts []string) {
 }
 
 func handleUpdate(conn net.Conn, parts []string) {
-	nodeName := conn.RemoteAddr().String()
+	nodeName := "node" + conn.RemoteAddr().String()
 	sharedFiles := parts[1:]
 
 	if nodeInfo, exists := nodeInfoMap[nodeName]; exists {
