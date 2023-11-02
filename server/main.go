@@ -195,8 +195,7 @@ func checkHeartbits(ticker <-chan time.Time) {
 
 			if diffInSeconds > limite {
 				// O FS_Node não enviou um HEARTBEAT a tempo, então é considerado inativo
-				//delete(nodeInfoMap, nodeName)
-				fmt.Println("FS_Node inativo", nodeName)
+				delete(nodeInfoMap, nodeName)
 			}
 		}
 	}
