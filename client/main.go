@@ -6,10 +6,12 @@ import (
 	"net"
 	"os"
 	"strings"
+	"time"
 )
 
 func main() {
 	serverAddress := "localhost:9090"
+	heartbitInterval := 5 * time.Second
 
 	// Connecta ao servidor
 	conn, err := net.Dial("tcp", serverAddress)
@@ -20,6 +22,11 @@ func main() {
 	defer conn.Close()
 
 	registration(conn)
+
+	ticker := time.NewTicker(heartbitInterval)
+	defer ticker.Stop()
+
+	go sendHeartbits(conn, ticker.C)
 
 	reader := bufio.NewReader(os.Stdin)
 
@@ -86,4 +93,15 @@ func listFiles(directory string) ([]string, error) {
 	}
 
 	return fileList, nil
+}
+
+func sendHeartbits(conn net.Conn, ticker <-chan time.Time) {
+	for range ticker {
+		heartbitMessage := "HEARTBIT" + "\n"
+		_, err := conn.Write([]byte(heartbitMessage))
+		if err != nil {
+			fmt.Println("Erro ao enviar comando para o servidor:", err)
+			return
+		}
+	}
 }
