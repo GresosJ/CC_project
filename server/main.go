@@ -7,12 +7,14 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // FSNodeInfo representa informações sobre um FS_Node registrado.
 type FSNodeInfo struct {
-	Address     string
-	SharedFiles []string
+	Address       string
+	SharedFiles   []string
+	LastHeartbeat time.Time
 }
 
 // nodeInfoMap mapeia nomes de FS_Node para informações.
@@ -38,13 +40,20 @@ func main() {
 
 	fmt.Printf("Servidor FS_Tracker ativo na porta %d\n", port)
 
+	// Inicie a goroutine para verificar HEARTBEATs
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+	go checkHeartbits(ticker.C)
+
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
 			fmt.Printf("Erro na aceitação da conexão: %s\n", err)
 			continue
 		}
+
 		go handleConnection(conn)
+
 	}
 }
 
@@ -84,6 +93,8 @@ func handleMessage(conn net.Conn, message string) {
 		handleUpdate(conn, parts)
 	case "LOCATE":
 		handleLocate(conn, parts)
+	case "HEARTBIT":
+		handleHeartbit(conn)
 	case "QUIT":
 		handleQuit(conn)
 	default:
@@ -148,10 +159,18 @@ func handleQuit(conn net.Conn) {
 	for nodeName, nodeInfo := range nodeInfoMap {
 		if nodeInfo.Address == conn.RemoteAddr().String() {
 			delete(nodeInfoMap, nodeName)
-			fmt.Println("FS_Node desconectado:", nodeName)
+			fmt.Println("FS_Node desconectado", nodeName)
 			sendResponse(conn, "QUIT_SUCCESS")
 			break
 		}
+	}
+}
+
+func handleHeartbit(conn net.Conn) {
+	nodeName := "node" + conn.RemoteAddr().String()
+	if nodeInfo, exists := nodeInfoMap[nodeName]; exists {
+		nodeInfo.LastHeartbeat = time.Now()
+		nodeInfoMap[nodeName] = nodeInfo
 	}
 }
 
@@ -162,6 +181,25 @@ func contains(arr []string, item string) bool {
 		}
 	}
 	return false
+}
+
+func checkHeartbits(ticker <-chan time.Time) {
+	for range ticker {
+		for nodeName, nodeInfo := range nodeInfoMap {
+			diff := time.Since(nodeInfo.LastHeartbeat)
+			diffInSeconds := int(diff.Seconds())
+			if diffInSeconds == 9223372036 {
+				diffInSeconds = 2
+			}
+			limite := 6
+
+			if diffInSeconds > limite {
+				// O FS_Node não enviou um HEARTBEAT a tempo, então é considerado inativo
+				//delete(nodeInfoMap, nodeName)
+				fmt.Println("FS_Node inativo", nodeName)
+			}
+		}
+	}
 }
 
 func sendResponse(conn net.Conn, response string) {
