@@ -171,6 +171,7 @@ func handleHeartbit(conn net.Conn) {
 	if nodeInfo, exists := nodeInfoMap[nodeName]; exists {
 		nodeInfo.LastHeartbeat = time.Now()
 		nodeInfoMap[nodeName] = nodeInfo
+		sendResponse(conn, "HEARTBIT_ACK")
 	}
 }
 

@@ -103,5 +103,9 @@ func sendHeartbits(conn net.Conn, ticker <-chan time.Time) {
 			fmt.Println("Erro ao enviar comando para o servidor:", err)
 			return
 		}
+		response, err := bufio.NewReader(conn).ReadString('\n')
+		if response != "HEARTBIT_ACK\n" {
+			conn.Close()
+		}
 	}
 }
