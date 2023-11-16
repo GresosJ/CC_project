@@ -26,12 +26,14 @@ func main() {
 	ticker := time.NewTicker(heartbitInterval)
 	defer ticker.Stop()
 
+	go watchForFileUpdates(conn, "files")
+
 	go sendHeartbits(conn, ticker.C)
 
 	reader := bufio.NewReader(os.Stdin)
 
 	for {
-		fmt.Print("Enter a command (UPDATE, LOCATE, or QUIT): ")
+		fmt.Print("Enter a command (LOCATE, or QUIT): ")
 		command, _ := reader.ReadString('\n')
 		command = command[:len(command)-1] // Remove a quebra de linha
 
@@ -76,23 +78,6 @@ func registration(conn net.Conn) {
 	}
 	response, err := bufio.NewReader(conn).ReadString('\n')
 	fmt.Print(response)
-}
-
-func listFiles(directory string) ([]string, error) {
-	var fileList []string
-	files, err := os.ReadDir(directory)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, file := range files {
-		if file.IsDir() {
-			continue
-		}
-		fileList = append(fileList, file.Name())
-	}
-
-	return fileList, nil
 }
 
 func sendHeartbits(conn net.Conn, ticker <-chan time.Time) {
