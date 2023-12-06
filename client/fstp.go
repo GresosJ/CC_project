@@ -8,22 +8,17 @@ import (
 	"net"
 )
 
+const maxBlockSize = 1472
+
 type DataBlock struct {
 	BlockID string
-	FileID  string // Name? ou criar uma struct file com as infos?
+	FileID  string 
 	Data    []byte
 	Hash    string
 }
 
 // Client -> Server(FS Node)
-func requestDataBlock(serverAddress string, blockID string, fileID string) {
-
-	conn, err := openUDPConn(serverAddress)
-	if err != nil {
-		fmt.Println("Erro ao abrir a conexão UDP:", err)
-		return
-	}
-	defer conn.Close()
+func requestDataBlock(conn *net.UDPConn, blockID string, fileID string) {
 
 	// Format the message
 	requestMessage := fmt.Sprintf("REQUEST %s %s", blockID, fileID)
@@ -37,8 +32,9 @@ func requestDataBlock(serverAddress string, blockID string, fileID string) {
 
 }
 
+
 // Envia um pacote
-func sendDataBlock(clientAddress string, blockID string, fileID string, data []byte) {
+func sendDataBlock(conn *net.UDPConn, blockID string, fileID string, data []byte){
 
 	// Criar hash value atraves da data
 	hash := calculateHash(data)
@@ -57,30 +53,12 @@ func sendDataBlock(clientAddress string, blockID string, fileID string, data []b
 		return
 	}
 
-	// Client Addr Abrimos uma conexao por block, mas podias abrir uma conexao e passar como argumento nesta funcao
-	conn, err := openUDPConn(clientAddress)
-	if err != nil {
-		fmt.Println("Erro ao abrir a conexão UDP:", err)
-		return
-	}
-	defer conn.Close()
-
-	// TODO!
-	// Datagrama vai ser igual ao UDP default
-
 	sendUDPData(dbBytes, *conn, "Erro no envio do datablock")
 
 }
 
 // Client -> Server
-func confirmData(serverAddress string, blockID string, fileID string) {
-
-	conn, err := openUDPConn(serverAddress)
-	if err != nil {
-		fmt.Println("Erro ao abrir a conexão UDP:", err)
-		return
-	}
-	defer conn.Close()
+func confirmData(conn *net.UDPConn, blockID string, fileID string){
 
 	confirmMessage := fmt.Sprintf("BLOCK_CONFIRMED %s %s", blockID, fileID)
 
@@ -90,7 +68,7 @@ func confirmData(serverAddress string, blockID string, fileID string) {
 
 }
 
-func checkReceivedDataBlock(data []byte) {
+func checkReceivedDataBlock(data []byte){
 
 	// Decodifica a estrutura DataBlock
 	var datablock DataBlock
@@ -115,10 +93,10 @@ func checkReceivedDataBlock(data []byte) {
 
 //////////////////// Utils Functions ////////////////////
 
-func openUDPConn(addr string) (*net.UDPConn, error) {
+func openUDPConn(addr string) (*net.UDPConn, error){
 	serverAddr, err := net.ResolveUDPAddr("udp", addr)
 	if err != nil {
-		fmt.Println("Erro ao obter o IP:", err)
+		fmt.Println("Erro ao obter o IP", err)
 		return nil, err
 	}
 
@@ -132,7 +110,7 @@ func openUDPConn(addr string) (*net.UDPConn, error) {
 	return conn, nil
 }
 
-func sendUDPData(data []byte, conn net.UDPConn, errorMessage string) {
+func sendUDPData(data []byte, conn net.UDPConn, errorMessage string){
 	_, err := conn.Write(data)
 	if err != nil {
 		fmt.Println(errorMessage, err)
@@ -140,7 +118,7 @@ func sendUDPData(data []byte, conn net.UDPConn, errorMessage string) {
 	}
 }
 
-func calculateHash(data []byte) string {
+func calculateHash(data []byte) string{
 	hasher := sha256.New()
 	hasher.Write(data)
 	hash := hex.EncodeToString(hasher.Sum(nil))
