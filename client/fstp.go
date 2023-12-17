@@ -144,4 +144,7 @@ func calculateHash(data []byte) string {
 	hash := hex.EncodeToString(hasher.Sum(nil))
 	return hash
 }
+<<<<<<< HEAD
 
+=======
+>>>>>>> 15458d933e88f2cd9ec2f59a7087491778495923
