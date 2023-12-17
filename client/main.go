@@ -11,7 +11,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"sync"
 )
 
 // global vars
@@ -58,11 +57,9 @@ func main() {
 	}
 	defer udpListener.Close()
 
-	var wg sync.WaitGroup
 	done := make(chan struct{})
 
-	wg.Add(1)
-	go handleIncommingRequests(udpListener, done, &wg)
+	go handleIncommingRequests(udpListener, done)
 
 	// Inputs
 	reader := bufio.NewReader(os.Stdin)
@@ -277,32 +274,19 @@ func transferAndAssembleFile(conn *net.UDPConn, fileID string) ([]byte, error) {
 		}
 
 		// Verifica a integridade do bloco recebido
-<<<<<<< HEAD
 		checkReceivedDataBlock(buffer[:n])
-=======
-		dataBlockGood := checkReceivedDataBlock(buffer[:n])
->>>>>>> 15458d933e88f2cd9ec2f59a7087491778495923
 		if err != nil {
 			fmt.Println("Erro ao verificar a integridade do bloco", err)
 			return nil, err
 		}
 
 		// Confirma o bloco
-<<<<<<< HEAD
 		confirmData(conn, fmt.Sprintf("%d", blockID), fileID)
-=======
-		if dataBlockGood {
-			confirmData(conn, fmt.Sprintf("%d", blockID), fileID)
-		} else {
-			return nil, err
-		}
->>>>>>> 15458d933e88f2cd9ec2f59a7087491778495923
 
 		// Guarda os blocos recebidos
 		receivedBlocks[blockID] = buffer[:n]
 
 		blockID++
-<<<<<<< HEAD
 	}
 
 	// Junta o arquivo
@@ -311,35 +295,14 @@ func transferAndAssembleFile(conn *net.UDPConn, fileID string) ([]byte, error) {
 		assembledFile = append(assembledFile, receivedBlocks[i]...)
 	}
 
-=======
-	}
-
-	// Junta o arquivo
-	var assembledFile []byte
-	for i := 0; i < blockID; i++ {
-		assembledFile = append(assembledFile, receivedBlocks[i]...)
-	}
-
->>>>>>> 15458d933e88f2cd9ec2f59a7087491778495923
 	return assembledFile, nil
 }
 
 
 // Funcao onde vai estar toda a logistica dos requests
-<<<<<<< HEAD
 func handleIncommingRequests(conn *net.UDPConn, done chan struct{}) {
 
 	defer close(done)
-=======
-func handleIncommingRequests(conn *net.UDPConn, done chan struct{}, wg *sync.WaitGroup) {
-
-	defer func() {
-        fmt.Println("Finishing handleIncommingRequests...")
-        wg.Done() // Decrement the WaitGroup counter when the function completes
-        close(done)
-    }()
-	
->>>>>>> 15458d933e88f2cd9ec2f59a7087491778495923
 
 	for {
 		select {
@@ -376,11 +339,7 @@ func handleUDPRequest(conn *net.UDPConn, addr *net.UDPAddr, data []byte) {
 		blocks, err := breakFileInBlocks(getPath(fileID))
 		if err != nil {
 			fmt.Println("Erro ao dividir o arquivo em blocos:", err)
-<<<<<<< HEAD
 
-=======
-			return
->>>>>>> 15458d933e88f2cd9ec2f59a7087491778495923
 		}
 
 		brokenFiles[fileID] = blocks
@@ -422,15 +381,9 @@ func handleUDPRequest(conn *net.UDPConn, addr *net.UDPAddr, data []byte) {
 		_ ,err = conn.WriteToUDP(data,addr)
 		if err != nil {
 			fmt.Println("Erro no envio do datablock", err)
-<<<<<<< HEAD
 			return
 		}
 		return
-=======
-			return 
-		}
-		return 
->>>>>>> 15458d933e88f2cd9ec2f59a7087491778495923
 	}
 
 	// Calcula SampleRTT
@@ -450,17 +403,10 @@ func TimeoutDuration() time.Duration {
 func updateRTTParameters(SampleRTT time.Duration) {
 	alpha := 0.125
 	beta := 0.25
-<<<<<<< HEAD
 
 	estimatedRTT = time.Duration((1-alpha)*float64(estimatedRTT) + alpha*float64(SampleRTT))
 	devRTT = time.Duration((1-beta)*float64(devRTT) + beta*float64(time.Duration(math.Abs(float64(SampleRTT-estimatedRTT)))))
 
-=======
-
-	estimatedRTT = time.Duration((1-alpha)*float64(estimatedRTT) + alpha*float64(SampleRTT))
-	devRTT = time.Duration((1-beta)*float64(devRTT) + beta*float64(time.Duration(math.Abs(float64(SampleRTT-estimatedRTT)))))
-
->>>>>>> 15458d933e88f2cd9ec2f59a7087491778495923
 	// (Opcional) Imprimir estimatedRTT e devRTT para fins de depuração
 	fmt.Printf("estimatedRTT: %v, devRTT: %v\n", estimatedRTT, devRTT)
 }
@@ -478,7 +424,6 @@ func getDataBlock(fileID, blockID string, blocks [][]byte) ([]byte, bool, error)
 	}
 	
 	isLastBlock := index == len(blocks)-1
-<<<<<<< HEAD
 
 	return blocks[index], isLastBlock ,nil
 }
@@ -499,24 +444,3 @@ func getPath(fileID string) string {
 	return filePath
 }
 
-=======
-
-	return blocks[index], isLastBlock ,nil
-}
-
-func getPath(fileID string) string {
-	executablePath, err := os.Executable()
-	if err != nil {
-		fmt.Println("Erro ao obter o caminho do executável:", err)
-		return ""
-	}
-	projectDir := filepath.Dir(executablePath)
-	filePath := filepath.Join(projectDir, "..", "files", fileID)
-	if err != nil {
-		fmt.Println("Erro ao dividir o arquivo em blocos:", err)
-		return ""
-	}
-
-	return filePath
-}
->>>>>>> 15458d933e88f2cd9ec2f59a7087491778495923
