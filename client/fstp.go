@@ -6,13 +6,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"bytes"
 )
 
-const maxBlockSize = 1472
+const hashSize = 32 // 32 bytes
+const fileIDSize = 54 // 54 byes
+const blockIDSize = 11 // ate 99GB
+const maxBlockSize = 1472 - hashSize - fileIDSize - blockIDSize - len("\nEND\n")
 
 type DataBlock struct {
 	BlockID string
-	FileID  string 
+	FileID  string
 	Data    []byte
 	Hash    string
 }
@@ -26,15 +30,14 @@ func requestDataBlock(conn *net.UDPConn, blockID string, fileID string) {
 	// Convert the message to bytes
 	data := []byte(requestMessage)
 
-	sendUDPData(data, *conn, "Erro ao enviar a mensagem UDP")
+	sendUDPData(data, *conn,"Erro ao enviar a mensagem UDP")
 
 	//fmt.Println("MESSAGE SENT!")
 
 }
 
-
 // Envia um pacote
-func sendDataBlock(conn *net.UDPConn, blockID string, fileID string, data []byte){
+func sendDataBlock(conn *net.UDPConn, addr *net.UDPAddr, blockID string, fileID string, data []byte) {
 
 	// Criar hash value atraves da data
 	hash := calculateHash(data)
@@ -53,55 +56,72 @@ func sendDataBlock(conn *net.UDPConn, blockID string, fileID string, data []byte
 		return
 	}
 
-	sendUDPData(dbBytes, *conn, "Erro no envio do datablock")
+	dbBytes = append(dbBytes, []byte("\nEND\n")...)
+	
+	
+	_ ,err = conn.WriteToUDP(dbBytes,addr)
+	if err != nil {
+		fmt.Println("Erro no envio do datablock", err)
+		return
+	}
 
 }
 
 // Client -> Server
-func confirmData(conn *net.UDPConn, blockID string, fileID string){
+func confirmData(conn *net.UDPConn, blockID string, fileID string) {
 
 	confirmMessage := fmt.Sprintf("BLOCK_CONFIRMED %s %s", blockID, fileID)
 
 	data := []byte(confirmMessage)
 
-	sendUDPData(data, *conn, "Erro no envio da confirmacao do Datablock")
+	sendUDPData(data, *conn,"Erro no envio da confirmacao do Datablock")
 
 }
 
-func checkReceivedDataBlock(data []byte){
+func checkReceivedDataBlock(data []byte) bool {
+    // Encontra o índice do marcador de fim
+    endMarkerIndex := bytes.Index(data, []byte("\nEND\n"))
+    if endMarkerIndex == -1 {
+        //fmt.Println("Marcador de fim não encontrado")
+        return false
+    }
 
-	// Decodifica a estrutura DataBlock
-	var datablock DataBlock
-	err := json.Unmarshal(data, &datablock)
-	if err != nil {
-		fmt.Println("Erro ao decodificar o DataBlock", err)
-		return
-	}
+    // Extrai os dados JSON
+    jsonBytes := data[:endMarkerIndex]
 
-	// Calcula o hash dos dados recebidos
-	receivedHash := calculateHash(datablock.Data)
+    // Calcula o hash dos dados recebidos
+    receivedHash := calculateHash(data[:endMarkerIndex])
 
-	// Compara os hashes codes
-	if receivedHash == datablock.Hash {
-		fmt.Println("Integridade verificada. Hashes coincidem.")
-		// Continue o processamento dos dados conforme necessário
-	} else {
-		fmt.Println("Erro: Integridade comprometida. Hashes não coincidem.")
-		// Manipule a situação de integridade comprometida conforme necessário
-	}
+    // Compara os hashes codes
+    var datablock DataBlock
+    err := json.Unmarshal(jsonBytes, &datablock)
+    if err != nil {
+        fmt.Println("Erro ao decodificar o DataBlock", err)
+        return false
+    }
+
+    if receivedHash == datablock.Hash {
+        fmt.Println("Integridade verificada. Hashes coincidem.")
+		return true
+        // Continue o processamento dos dados conforme necessário
+    } else {
+        fmt.Println("Erro: Integridade comprometida. Hashes não coincidem.")
+		return false
+        // Manipule a situação de integridade comprometida conforme necessário
+    }
 }
+
 
 //////////////////// Utils Functions ////////////////////
 
-func openUDPConn(addr string) (*net.UDPConn, error){
-	serverAddr, err := net.ResolveUDPAddr("udp", addr)
+func openUDPConn(addr string) (*net.UDPConn, error) {
+	udpAddr, err := net.ResolveUDPAddr("udp", addr)
 	if err != nil {
 		fmt.Println("Erro ao obter o IP", err)
 		return nil, err
 	}
 
-	// Abre ligacao UDP
-	conn, err := net.DialUDP("udp", nil, serverAddr)
+	conn, err := net.DialUDP("udp", nil, udpAddr)
 	if err != nil {
 		fmt.Println("Erro ao abrir ligacao UDP", err)
 		return nil, err
@@ -110,7 +130,7 @@ func openUDPConn(addr string) (*net.UDPConn, error){
 	return conn, nil
 }
 
-func sendUDPData(data []byte, conn net.UDPConn, errorMessage string){
+func sendUDPData(data []byte, conn net.UDPConn, errorMessage string) {
 	_, err := conn.Write(data)
 	if err != nil {
 		fmt.Println(errorMessage, err)
@@ -118,22 +138,9 @@ func sendUDPData(data []byte, conn net.UDPConn, errorMessage string){
 	}
 }
 
-func calculateHash(data []byte) string{
+func calculateHash(data []byte) string {
 	hasher := sha256.New()
 	hasher.Write(data)
 	hash := hex.EncodeToString(hasher.Sum(nil))
 	return hash
 }
-
-/*
-	ToAsk:
-		Como vamos fzr em relacao ao sequencializacao dos ficheiros, para os transformar em blocos
-
-
-	TODO:
-		Mecanismo de timeout
-		Formatacao do DataBlock
-
-	TOSEE:
-		Set(Read/Write)Buffe
-*/
