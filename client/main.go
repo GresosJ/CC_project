@@ -224,11 +224,11 @@ func breakFileInBlocks(filePath string) ([][]byte, error) {
 		blocks = append(blocks, block)
 	}
 
-	if len(blocks) > 0 && len(blocks[len(blocks)-1]) < maxBlockSize {
+	/* if len(blocks) > 0 && len(blocks[len(blocks)-1]) < maxBlockSize {
 		lastBlock := blocks[len(blocks)-1]
 		emptyBytes := make([]byte, maxBlockSize-len(lastBlock))
 		blocks[len(blocks)-1] = append(lastBlock, emptyBytes...)
-	}
+	} */
 
 	return blocks, nil
 }
