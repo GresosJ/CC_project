@@ -1,7 +1,6 @@
 package main
 
 import (
-	/* "bytes" */
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -25,15 +24,14 @@ type DataBlock struct {
 // Client -> Server(FS Node)
 func requestDataBlock(conn *net.UDPConn, blockID string, fileID string) {
 
-	// Format the message
+	// Formata a mensagem
 	requestMessage := fmt.Sprintf("REQUEST %s %s", blockID, fileID)
 
-	// Convert the message to bytes
+	// Converte a mensagempara bytes
 	data := []byte(requestMessage)
 
 	sendUDPData(data, *conn, "Erro ao enviar a mensagem UDP")
 
-	//fmt.Println("MESSAGE SENT!")
 
 }
 
@@ -42,8 +40,6 @@ func sendDataBlock(conn *net.UDPConn, addr *net.UDPAddr, blockID string, fileID 
 
 	// Criar hash value atraves da data
 	hash := calculateHash(data)
-
-	
 
 	datablock := DataBlock{
 		BlockID: blockID,
@@ -85,19 +81,9 @@ func confirmData(conn *net.UDPConn, blockID string, fileID string) {
 
 }
 
+//////////////////// Utils Functions ////////////////////
+
 func checkReceivedDataBlock(data []byte) []byte {
-	/* // Encontra o índice do marcador de fim
-	endMarkerIndex := bytes.Index(data, []byte("\nEND\n"))
-	if endMarkerIndex == -1 {
-		//fmt.Println("Marcador de fim não encontrado")
-		return nil
-	} */
-
-	/* // Extrai os dados JSON
-	jsonBytes := data[:endMarkerIndex]
-
-	// Calcula o hash dos dados recebidos
-	receivedHash := calculateHash(data[:endMarkerIndex]) */
 
 	jsonBytes := data
 	
@@ -113,15 +99,13 @@ func checkReceivedDataBlock(data []byte) []byte {
 	if receivedHash == datablock.Hash {
 		fmt.Println("Integridade verificada. Hashes coincidem.")
 		return datablock.Data
-		// Continue o processamento dos dados conforme necessário
+		// Continua o processamento dos dados conforme necessário
 	} else {
 		fmt.Println("Erro: Integridade comprometida. Hashes não coincidem.")
 		return nil
-		// Manipule a situação de integridade comprometida conforme necessário
+		// Manipula a situação de integridade comprometida conforme necessário
 	}
 }
-
-//////////////////// Utils Functions ////////////////////
 
 func openUDPConn(addr string) (*net.UDPConn, error) {
 	udpAddr, err := net.ResolveUDPAddr("udp", addr)

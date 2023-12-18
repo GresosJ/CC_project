@@ -20,7 +20,7 @@ var devRTT time.Duration
 var brokenFiles map[string][][]byte
 
 func main() {
-	serverAddress := "10.0.2.10:9090"
+	serverAddress := "10.0.3.10:9090"
 	heartbitInterval := 5 * time.Second
 
 	brokenFiles = make(map[string][][]byte)
@@ -224,12 +224,6 @@ func breakFileInBlocks(filePath string) ([][]byte, error) {
 		blocks = append(blocks, block)
 	}
 
-	/* if len(blocks) > 0 && len(blocks[len(blocks)-1]) < maxBlockSize {
-		lastBlock := blocks[len(blocks)-1]
-		emptyBytes := make([]byte, maxBlockSize-len(lastBlock))
-		blocks[len(blocks)-1] = append(lastBlock, emptyBytes...)
-	} */
-
 	return blocks, nil
 }
 
@@ -253,7 +247,6 @@ func parseLocateSuccessMessage(message string) (map[string]string, error) {
 func transferAndAssembleFile(conn *net.UDPConn, fileID string) ([]byte, error) {
 
 	// map para guardar os blocos recebidos
-	receivedBlocks := make(map[int][]byte)
 	dataInBlocks := make(map[int][]byte)
 	blockID := 0
 
@@ -269,11 +262,6 @@ func transferAndAssembleFile(conn *net.UDPConn, fileID string) ([]byte, error) {
 			return nil, err
 		}
 
-		// Verifica se é o bloco final
-		if string(buffer[:n]) == "END_OF_FILE" {
-			break
-		}
-
 		fmt.Printf("%s",string(buffer[:n]))
 		// Verifica a integridade do bloco recebido
 		dataInBlocks[blockID] = checkReceivedDataBlock(buffer[:n])
@@ -285,8 +273,9 @@ func transferAndAssembleFile(conn *net.UDPConn, fileID string) ([]byte, error) {
 		// Confirma o bloco
 		confirmData(conn, fmt.Sprintf("%d", blockID), fileID)
 
-		// Guarda os blocos recebidos
-		receivedBlocks[blockID] = buffer[:n]
+		if(string(dataInBlocks[blockID]) == "END_OF_FILE") {
+			break
+		}
 
 		blockID++
 	}
@@ -378,12 +367,7 @@ func handleUDPRequest(conn *net.UDPConn, addr *net.UDPAddr, data []byte) {
 	if isLastBlock {
 		fmt.Println("Fim do ficheiro")
 		message := "END_OF_FILE"
-		data := []byte(message)
-		_, err = conn.WriteToUDP(data, addr)
-		if err != nil {
-			fmt.Println("Erro no envio do datablock", err)
-			return
-		}
+		sendDataBlock(conn,addr,blockID,fileID,[]byte(message))
 		return
 	}
 
