@@ -153,3 +153,4 @@ func calculateHash(data []byte) string {
 	hash := hex.EncodeToString(hasher.Sum(nil))
 	return hash
 }
+

@@ -273,7 +273,7 @@ func transferAndAssembleFile(conn *net.UDPConn, fileID string) ([]byte, error) {
 		if string(buffer[:n]) == "END_OF_FILE" {
 			break
 		}
-		
+
 		fmt.Printf("%s",string(buffer[:n]))
 		// Verifica a integridade do bloco recebido
 		dataInBlocks[blockID] = checkReceivedDataBlock(buffer[:n])
@@ -442,3 +442,4 @@ func getPath(fileID string) string {
 
 	return filePath
 }
+
