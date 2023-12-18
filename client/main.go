@@ -262,22 +262,24 @@ func transferAndAssembleFile(conn *net.UDPConn, fileID string) ([]byte, error) {
 			return nil, err
 		}
 
-		fmt.Printf("%s",string(buffer[:n]))
 		// Verifica a integridade do bloco recebido
 		dataInBlocks[blockID] = checkReceivedDataBlock(buffer[:n])
 		if err != nil {
 			fmt.Println("Erro ao verificar a integridade do bloco", err)
 			return nil, err
+		} else if dataInBlocks[blockID] != nil {
+
+			// Confirma o bloco
+			confirmData(conn, fmt.Sprintf("%d", blockID), fileID)
+			fmt.Println("DataBlock recebido com sucesso...")
+	
+			if(string(dataInBlocks[blockID]) == "END_OF_FILE") {
+				break
+			}
+	
+			blockID++
 		}
 
-		// Confirma o bloco
-		confirmData(conn, fmt.Sprintf("%d", blockID), fileID)
-
-		if(string(dataInBlocks[blockID]) == "END_OF_FILE") {
-			break
-		}
-
-		blockID++
 	}
 
 	// Junta o arquivo

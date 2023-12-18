@@ -32,7 +32,6 @@ func requestDataBlock(conn *net.UDPConn, blockID string, fileID string) {
 
 	sendUDPData(data, *conn, "Erro ao enviar a mensagem UDP")
 
-
 }
 
 // Envia um pacote
