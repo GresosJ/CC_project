@@ -20,7 +20,7 @@ var devRTT time.Duration
 var brokenFiles map[string][][]byte
 
 func main() {
-	serverAddress := "10.0.3.10:9090"
+	serverAddress := "10.0.2.10:9090"
 	heartbitInterval := 5 * time.Second
 
 	brokenFiles = make(map[string][][]byte)
