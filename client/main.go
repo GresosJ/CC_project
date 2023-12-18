@@ -65,7 +65,7 @@ func main() {
 	reader := bufio.NewReader(os.Stdin)
 
 	for {
-		fmt.Print("Enter a command (REQUEST or QUIT): ")
+		fmt.Print("Enter a command (REQUEST, LOCATE or QUIT): ")
 		command, _ := reader.ReadString('\n')
 		command = command[:len(command)-1] // Remove a quebra de linha
 
@@ -129,6 +129,25 @@ func main() {
 			}
 
 			return
+
+		case "LOCATE":
+			fmt.Print("Enter the file ID to request: ")
+			fileID, _ := reader.ReadString('\n')
+			fileID = fileID[:len(fileID)-1] // Remove a quebra de linha
+
+			_, err := conn.Write([]byte("LOCATE " + fileID + "\n"))
+			if err != nil {
+				fmt.Println("Error sending command to the server:", err)
+				break
+			}
+			// Le e imprime a resposta do servidor
+			response, err := bufio.NewReader(conn).ReadString('\n')
+			if err != nil {
+				fmt.Println("Error receiving response from the server:", err)
+				break
+			}
+
+			fmt.Print(response)
 
 		case "QUIT":
 			// Mandar o comando para o servidor
