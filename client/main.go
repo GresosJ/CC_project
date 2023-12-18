@@ -11,7 +11,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"sync"
 )
 
 // global vars
@@ -58,11 +57,9 @@ func main() {
 	}
 	defer udpListener.Close()
 
-	var wg sync.WaitGroup
 	done := make(chan struct{})
 
-	wg.Add(1)
-	go handleIncommingRequests(udpListener, done, &wg)
+	go handleIncommingRequests(udpListener, done)
 
 	// Inputs
 	reader := bufio.NewReader(os.Stdin)
@@ -125,7 +122,7 @@ func main() {
 			}
 
 			// Guarda o ficheiro na pasta files
-			err = os.WriteFile(fileID, transferedFile, 0644)
+			err = os.WriteFile(getPath(fileID), transferedFile, 0644)
 			if err != nil {
 				fmt.Println("Error saving the assembled file:", err)
 				return
@@ -206,6 +203,7 @@ func breakFileInBlocks(filePath string) ([][]byte, error) {
 	// Imprime o tamanho do arquivo
 	fmt.Printf("Tamanho do arquivo: %d bytes\n", fileInfo.Size())
 
+
 	var blocks [][]byte
 	buffer := make([]byte, maxBlockSize)
 
@@ -252,11 +250,11 @@ func parseLocateSuccessMessage(message string) (map[string]string, error) {
 	return nodeInfoMap, nil
 }
 
-
 func transferAndAssembleFile(conn *net.UDPConn, fileID string) ([]byte, error) {
 
 	// map para guardar os blocos recebidos
 	receivedBlocks := make(map[int][]byte)
+	dataInBlocks := make(map[int][]byte)
 	blockID := 0
 
 	for {
@@ -264,7 +262,7 @@ func transferAndAssembleFile(conn *net.UDPConn, fileID string) ([]byte, error) {
 		requestDataBlock(conn, fmt.Sprintf("%d", blockID), fileID)
 
 		// Aguarda dados do bloco
-		buffer := make([]byte, maxBlockSize)
+		buffer := make([]byte, totalBlockSize)
 		n, _, err := conn.ReadFromUDP(buffer)
 		if err != nil {
 			fmt.Println("Erro ao receber dados do bloco", err)
@@ -275,20 +273,17 @@ func transferAndAssembleFile(conn *net.UDPConn, fileID string) ([]byte, error) {
 		if string(buffer[:n]) == "END_OF_FILE" {
 			break
 		}
-
+		
+		fmt.Printf("%s",string(buffer[:n]))
 		// Verifica a integridade do bloco recebido
-		dataBlockGood := checkReceivedDataBlock(buffer[:n])
+		dataInBlocks[blockID] = checkReceivedDataBlock(buffer[:n])
 		if err != nil {
 			fmt.Println("Erro ao verificar a integridade do bloco", err)
 			return nil, err
 		}
 
 		// Confirma o bloco
-		if dataBlockGood {
-			confirmData(conn, fmt.Sprintf("%d", blockID), fileID)
-		} else {
-			return nil, err
-		}
+		confirmData(conn, fmt.Sprintf("%d", blockID), fileID)
 
 		// Guarda os blocos recebidos
 		receivedBlocks[blockID] = buffer[:n]
@@ -299,22 +294,16 @@ func transferAndAssembleFile(conn *net.UDPConn, fileID string) ([]byte, error) {
 	// Junta o arquivo
 	var assembledFile []byte
 	for i := 0; i < blockID; i++ {
-		assembledFile = append(assembledFile, receivedBlocks[i]...)
+		assembledFile = append(assembledFile, dataInBlocks[i]...)
 	}
 
 	return assembledFile, nil
 }
 
-
 // Funcao onde vai estar toda a logistica dos requests
-func handleIncommingRequests(conn *net.UDPConn, done chan struct{}, wg *sync.WaitGroup) {
+func handleIncommingRequests(conn *net.UDPConn, done chan struct{}) {
 
-	defer func() {
-        fmt.Println("Finishing handleIncommingRequests...")
-        wg.Done() // Decrement the WaitGroup counter when the function completes
-        close(done)
-    }()
-	
+	defer close(done)
 
 	for {
 		select {
@@ -351,14 +340,14 @@ func handleUDPRequest(conn *net.UDPConn, addr *net.UDPAddr, data []byte) {
 		blocks, err := breakFileInBlocks(getPath(fileID))
 		if err != nil {
 			fmt.Println("Erro ao dividir o arquivo em blocos:", err)
-			return
+
 		}
 
 		brokenFiles[fileID] = blocks
 		dataBlocks = blocks
 	}
 
-	dataBlock, isLastBlock ,err := getDataBlock(fileID, blockID, dataBlocks)
+	dataBlock, isLastBlock, err := getDataBlock(fileID, blockID, dataBlocks)
 	if err != nil {
 		fmt.Println("Erro ao obter datablock ", err)
 		return
@@ -390,12 +379,12 @@ func handleUDPRequest(conn *net.UDPConn, addr *net.UDPAddr, data []byte) {
 		fmt.Println("Fim do ficheiro")
 		message := "END_OF_FILE"
 		data := []byte(message)
-		_ ,err = conn.WriteToUDP(data,addr)
+		_, err = conn.WriteToUDP(data, addr)
 		if err != nil {
 			fmt.Println("Erro no envio do datablock", err)
-			return 
+			return
 		}
-		return 
+		return
 	}
 
 	// Calcula SampleRTT
@@ -403,8 +392,6 @@ func handleUDPRequest(conn *net.UDPConn, addr *net.UDPAddr, data []byte) {
 
 	// Atualiza o EstimatedRTT e DevRTT
 	updateRTTParameters(SampleRTT)
-
-	
 
 }
 
@@ -427,17 +414,17 @@ func getDataBlock(fileID, blockID string, blocks [][]byte) ([]byte, bool, error)
 	index, err := strconv.Atoi(blockID)
 	if err != nil {
 		fmt.Println("Erro ao converter blockID para inteiro:", err)
-		return nil, false ,err
+		return nil, false, err
 	}
 
 	if index < 0 || index >= len(blocks) {
 		fmt.Println("Indice do bloco fora do intervalo:", index)
-		return nil, false ,fmt.Errorf("bloco de id inválido")
+		return nil, false, fmt.Errorf("bloco de id inválido")
 	}
-	
+
 	isLastBlock := index == len(blocks)-1
 
-	return blocks[index], isLastBlock ,nil
+	return blocks[index], isLastBlock, nil
 }
 
 func getPath(fileID string) string {
